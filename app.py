@@ -5,6 +5,7 @@ import plotly.express as px
 import base64
 import streamlit.components.v1 as components
 from scipy.stats import chi2_contingency
+from pathlib import Path
 
 # Calculate risk factor importance
 @st.cache_data
@@ -47,6 +48,7 @@ def show_login_page():
         if submitted:
             if pw == 'streamlit_health2025':
                 st.session_state.logged_in = True
+                st.rerun()
             else:
                 st.error('❌ Invalid code')
     st.markdown('</div>', unsafe_allow_html=True)
@@ -55,7 +57,7 @@ def show_login_page():
         🔒 HIPAA Compliant & Secure • Unauthorized access prohibited
     </div>
     """, unsafe_allow_html=True)
-    st.stop()
+
 def show_home():
     col1, col2 = st.columns([3,1])
     with col1:
@@ -66,7 +68,11 @@ def show_home():
         **Problem Statement:** Heart disease remains the leading cause of mortality, with 80% of cases preventable through lifestyle changes.
         """, unsafe_allow_html=True)
     with col2:
-        st.image('heart-intro-photo-1.jpg', width=150)
+        # Use a placeholder if image is not available
+        try:
+            st.image('heart-intro-photo-1.jpg', width=150)
+        except:
+            st.markdown("🫀", unsafe_allow_html=True)
 
 # Heart Disease Dashboard
 def show_hd_dashboard(df_hd):
@@ -105,7 +111,6 @@ def show_hd_dashboard(df_hd):
     fig3 = px.pie(hd_only, names='CholCat', title='Cholesterol Distribution (HD Patients)', hole=0.3)
     r1, r2 = st.columns(2)
     with r1: st.plotly_chart(fig2, use_container_width=True)
-    with r2: st.plotly_chart(fig3, use_container_width=True)(fig2, use_container_width=True)
     with r2: st.plotly_chart(fig3, use_container_width=True)
     # Secondary Insights: Smoking & BP
     smoke_df = df.groupby(['Smoking','Heart Disease Status']).size().reset_index(name='Count')
@@ -158,24 +163,65 @@ def show_predictive():
     cat = 'Low' if score < 30 else 'Moderate' if score < 60 else 'High'
     st.markdown(f'**Risk Score:** {int(score)} ({cat})')
 
-# Entry point
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if not st.session_state.logged_in:
-    show_login_page()
-else:
-    from pathlib import Path
+def load_data():
+    """Load CSV files with proper error handling"""
     base_path = Path(__file__).resolve().parent
+    
     # Load demographics CSV with fallback
     try:
+        # Try loading from the same directory as the script
         df_demo = pd.read_csv(base_path / 'demographics_data.csv').dropna()
     except FileNotFoundError:
-        df_demo = pd.read_csv('demographics_data.csv').dropna()(base_path / 'demographics_data.csv').dropna()
-    long_col = [c for c in df_demo.columns if 'deaths' in c.lower()][0]
-    df_demo.rename(columns={long_col: 'Deaths per 100k'}, inplace=True)
-    df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()
-    st.set_page_config(page_title='Health Data App', layout='wide')
+        try:
+            # Try loading from current working directory
+            df_demo = pd.read_csv('demographics_data.csv').dropna()
+        except FileNotFoundError:
+            # Create dummy data if file doesn't exist
+            st.warning("Demographics data file not found. Using sample data.")
+            df_demo = pd.DataFrame({
+                'Country': ['USA', 'Canada', 'UK', 'Germany', 'France'],
+                'Year': [2020, 2020, 2020, 2020, 2020],
+                'Deaths per 100k': [150, 120, 130, 140, 135]
+            })
+    
+    # Rename column if it has a different name
+    long_col = [c for c in df_demo.columns if 'deaths' in c.lower()]
+    if long_col:
+        df_demo.rename(columns={long_col[0]: 'Deaths per 100k'}, inplace=True)
+    
+    # Load heart disease CSV
+    try:
+        df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()
+    except FileNotFoundError:
+        try:
+            df_hd = pd.read_csv('heart_disease_data.csv').dropna()
+        except FileNotFoundError:
+            st.error("Heart disease data file not found. Please ensure 'heart_disease_data.csv' exists in your project directory.")
+            st.stop()
+    
+    return df_demo, df_hd
+
+# Entry point
+def main():
+    # Set page config first
+    st.set_page_config(page_title='Health Data App', layout='wide', page_icon='🫀')
+    
+    # Initialize login state
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    
+    # Show login page if not logged in
+    if not st.session_state.logged_in:
+        show_login_page()
+        return
+    
+    # Load data
+    df_demo, df_hd = load_data()
+    
+    # Navigation
     page = st.sidebar.selectbox('Navigation', ['Home', 'Heart Disease Dashboard', 'Demographics Heatmap', 'Predictive Insights'], key='nav')
+    
+    # Show selected page
     if page == 'Home':
         show_home()
     elif page == 'Heart Disease Dashboard':
@@ -184,3 +230,6 @@ else:
         show_heatmap(df_demo)
     else:
         show_predictive()
+
+if __name__ == "__main__":
+    main()
