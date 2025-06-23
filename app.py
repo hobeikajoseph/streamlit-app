@@ -7,6 +7,9 @@ import streamlit.components.v1 as components
 from scipy.stats import chi2_contingency
 from pathlib import Path
 
+# Set page config at the very beginning
+st.set_page_config(page_title='Health Data App', layout='wide', page_icon='🫀')
+
 # Calculate risk factor importance
 @st.cache_data
 def calculate_risk_factor_importance(df):
@@ -22,6 +25,74 @@ def calculate_risk_factor_importance(df):
     rf['Diabetes'] = abs((df['Diabetes'] == 'Yes').astype(int).corr(hd_bin))
     return pd.DataFrame(rf.items(), columns=['Risk Factor','Importance'])
 
+def load_data():
+    """Load CSV files with comprehensive error handling"""
+    # Try multiple possible locations for the files
+    possible_paths = [
+        Path(__file__).resolve().parent,  # Same directory as script
+        Path.cwd(),  # Current working directory
+        Path('/mount/src/streamlit-app/'),  # Streamlit Cloud path
+        Path('/app/'),  # Docker container path
+    ]
+    
+    df_demo = None
+    df_hd = None
+    
+    # Try to load demographics data
+    for base_path in possible_paths:
+        demo_file = base_path / 'demographics_data.csv'
+        if demo_file.exists():
+            try:
+                df_demo = pd.read_csv(demo_file).dropna()
+                break
+            except Exception as e:
+                continue
+    
+    # If demographics file not found, create sample data
+    if df_demo is None:
+        st.warning("Demographics data file not found. Using sample data.")
+        df_demo = pd.DataFrame({
+            'Country': ['USA', 'Canada', 'UK', 'Germany', 'France', 'Japan', 'Australia', 'Brazil', 'India', 'China'],
+            'Year': [2020] * 10,
+            'Deaths per 100k': [150, 120, 130, 140, 135, 110, 125, 160, 180, 170]
+        })
+    
+    # Rename column if it has a different name
+    long_cols = [c for c in df_demo.columns if 'deaths' in c.lower()]
+    if long_cols and 'Deaths per 100k' not in df_demo.columns:
+        df_demo.rename(columns={long_cols[0]: 'Deaths per 100k'}, inplace=True)
+    
+    # Try to load heart disease data
+    for base_path in possible_paths:
+        hd_file = base_path / 'heart_disease_data.csv'
+        if hd_file.exists():
+            try:
+                df_hd = pd.read_csv(hd_file).dropna()
+                break
+            except Exception as e:
+                continue
+    
+    # If heart disease file not found, create sample data
+    if df_hd is None:
+        st.warning("Heart disease data file not found. Using sample data.")
+        np.random.seed(42)  # For reproducible sample data
+        n_samples = 1000
+        
+        df_hd = pd.DataFrame({
+            'Age': np.random.randint(20, 80, n_samples),
+            'Gender': np.random.choice(['Male', 'Female'], n_samples),
+            'Cholesterol Level': np.random.randint(150, 300, n_samples),
+            'Blood Pressure': np.random.randint(90, 180, n_samples),
+            'Smoking': np.random.choice(['Yes', 'No'], n_samples, p=[0.3, 0.7]),
+            'Family Heart Disease': np.random.choice(['Yes', 'No'], n_samples, p=[0.4, 0.6]),
+            'Exercise Habits': np.random.choice(['Yes', 'No'], n_samples, p=[0.6, 0.4]),
+            'BMI': np.random.normal(25, 5, n_samples).clip(15, 45),
+            'Diabetes': np.random.choice(['Yes', 'No'], n_samples, p=[0.2, 0.8]),
+            'Heart Disease Status': np.random.choice(['Yes', 'No'], n_samples, p=[0.3, 0.7])
+        })
+    
+    return df_demo, df_hd
+
 # Login Page
 def show_login_page():
     st.markdown("""
@@ -34,14 +105,17 @@ def show_login_page():
     .stTextInput input { border-radius:6px; border:1px solid #ccc; padding:0.5rem 0.75rem; }
     .stButton button { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none; border-radius:6px; padding:0.5rem; width:100%; }
     #MainMenu, header, footer { visibility:hidden; }
+    .login-footer { margin-top: 1rem; font-size: 0.8rem; color: #666; }
     </style>
     """, unsafe_allow_html=True)
+    
     st.markdown("<div class='login-container'>", unsafe_allow_html=True)
     st.markdown("""
     <div class='medical-icon'>🫀</div>
     <h1 class='login-header'>CardioInsight</h1>
     <p class='login-subtitle'>Advanced CVD Analytics Platform</p>
     """, unsafe_allow_html=True)
+    
     with st.form("login_form"):
         pw = st.text_input('🔐 Access Code', type='password', placeholder='Enter code', key='login_pw')
         submitted = st.form_submit_button('🚀 Access Dashboard')
@@ -51,6 +125,7 @@ def show_login_page():
                 st.rerun()
             else:
                 st.error('❌ Invalid code')
+    
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class='login-footer'>
@@ -68,15 +143,13 @@ def show_home():
         **Problem Statement:** Heart disease remains the leading cause of mortality, with 80% of cases preventable through lifestyle changes.
         """, unsafe_allow_html=True)
     with col2:
-        # Use a placeholder if image is not available
-        try:
-            st.image('heart-intro-photo-1.jpg', width=150)
-        except:
-            st.markdown("🫀", unsafe_allow_html=True)
+        # Display heart emoji as fallback
+        st.markdown("<div style='font-size: 5rem; text-align: center;'>🫀</div>", unsafe_allow_html=True)
 
 # Heart Disease Dashboard
 def show_hd_dashboard(df_hd):
     st.markdown('<h1 class="dashboard-title">Heart Disease Dashboard</h1>', unsafe_allow_html=True)
+    
     # Filters
     st.sidebar.header('Filters')
     age_min, age_max = int(df_hd['Age'].min()), int(df_hd['Age'].max())
@@ -84,10 +157,15 @@ def show_hd_dashboard(df_hd):
     genders = st.sidebar.multiselect('Gender', df_hd['Gender'].unique(), df_hd['Gender'].unique(), key='g')
     smoking = st.sidebar.multiselect('Smoking', df_hd['Smoking'].unique(), df_hd['Smoking'].unique(), key='s')
     diabetes = st.sidebar.multiselect('Diabetes', df_hd['Diabetes'].unique(), df_hd['Diabetes'].unique(), key='d')
+    
     # Filter data
     df = df_hd[
-        df_hd['Age'].between(*age_range) & df_hd['Gender'].isin(genders) & df_hd['Smoking'].isin(smoking) & df_hd['Diabetes'].isin(diabetes)
+        df_hd['Age'].between(*age_range) & 
+        df_hd['Gender'].isin(genders) & 
+        df_hd['Smoking'].isin(smoking) & 
+        df_hd['Diabetes'].isin(diabetes)
     ].copy()
+    
     # Key Metrics
     st.subheader('Key Metrics')
     c1, c2, c3, c4 = st.columns(4)
@@ -98,37 +176,51 @@ def show_hd_dashboard(df_hd):
     hr_pct = len(hr)/len(df)*100 if len(df) else 0
     c3.metric('⚠️ High-Risk %', f"{hr_pct:.1f}%")
     avg_age = df.loc[df['Heart Disease Status']=='Yes','Age'].mean()
-    c4.metric('📅 Avg Age HD', f"{avg_age:.1f} yrs")
+    c4.metric('📅 Avg Age HD', f"{avg_age:.1f} yrs" if not pd.isna(avg_age) else "N/A")
+    
     st.markdown('---')
+    
     # Risk Factors Correlation Heatmap
     corr_df = df.copy()
-    corr_df[['Smoking','Exercise Habits']] = corr_df[['Smoking','Exercise Habits']].applymap(lambda x:1 if x=='Yes' else 0)
-    corr = corr_df[['Age','Cholesterol Level','Blood Pressure','Smoking','BMI','Exercise Habits']].corr()
+    corr_df['Smoking_num'] = (corr_df['Smoking'] == 'Yes').astype(int)
+    corr_df['Exercise_num'] = (corr_df['Exercise Habits'] == 'Yes').astype(int)
+    corr = corr_df[['Age','Cholesterol Level','Blood Pressure','Smoking_num','BMI','Exercise_num']].corr()
     fig2 = px.imshow(corr, text_auto=True, color_continuous_scale='Blues', title='Risk Factors Correlation')
+    
     # Cholesterol Distribution Pie
     hd_only = df[df['Heart Disease Status']=='Yes'].copy()
-    hd_only['CholCat'] = hd_only['Cholesterol Level'].apply(lambda x: 'Low' if x<200 else ('Medium' if x<240 else 'High'))
-    fig3 = px.pie(hd_only, names='CholCat', title='Cholesterol Distribution (HD Patients)', hole=0.3)
+    if len(hd_only) > 0:
+        hd_only['CholCat'] = hd_only['Cholesterol Level'].apply(lambda x: 'Low' if x<200 else ('Medium' if x<240 else 'High'))
+        fig3 = px.pie(hd_only, names='CholCat', title='Cholesterol Distribution (HD Patients)', hole=0.3)
+    else:
+        fig3 = px.pie(values=[1], names=['No Data'], title='Cholesterol Distribution (HD Patients)', hole=0.3)
+    
     r1, r2 = st.columns(2)
     with r1: st.plotly_chart(fig2, use_container_width=True)
     with r2: st.plotly_chart(fig3, use_container_width=True)
+    
     # Secondary Insights: Smoking & BP
     smoke_df = df.groupby(['Smoking','Heart Disease Status']).size().reset_index(name='Count')
     fig5 = px.bar(smoke_df, x='Smoking', y='Count', color='Heart Disease Status', barmode='group', title='Smoking Impact')
+    
     df['BPCat'] = pd.cut(df['Blood Pressure'], bins=[0,80,120,140,200], labels=['Low','Normal','High','Very High'], right=False)
     bp_rate = df.groupby('BPCat')['Heart Disease Status'].apply(lambda s:(s=='Yes').mean()*100).reset_index()
     fig6 = px.bar(bp_rate, x='Heart Disease Status', y='BPCat', orientation='h', title='HD Rate by BP Category')
+    
     r3, r4 = st.columns(2)
     with r3: st.plotly_chart(fig5, use_container_width=True)
     with r4: st.plotly_chart(fig6, use_container_width=True)
+    
     # Top Risk Factors & Patient Risk Categories
     top5 = calculate_risk_factor_importance(df).sort_values('Importance', ascending=False).head(5)
     fig7 = px.bar(top5, x='Importance', y='Risk Factor', orientation='h', title='Top Risk Factors Ranking')
+    
     rc = df.copy()
     rc['RiskCat'] = np.select([
         (rc['Age']>50)&(rc['Cholesterol Level']>240)&(rc['Blood Pressure']>140)&(rc['Smoking']=='Yes'),
         (rc['Heart Disease Status']=='Yes')], ['High Risk','HD Only'], default='Low Risk')
     fig8 = px.pie(rc, names='RiskCat', hole=0.4, title='Patient Risk Categories')
+    
     r5, r6 = st.columns(2)
     with r5: st.plotly_chart(fig7, use_container_width=True)
     with r6: st.plotly_chart(fig8, use_container_width=True)
@@ -140,7 +232,9 @@ def show_heatmap(df_demo):
     yr = st.sidebar.slider('Year Range', y_min, y_max, (y_min, y_max), key='y')
     df_y = df_demo[df_demo['Year'].between(*yr)]
     vmin, vmax = df_y['Deaths per 100k'].min(), df_y['Deaths per 100k'].max()
-    fig_map = px.choropleth(df_y, locations='Country', color='Deaths per 100k', locationmode='country names', range_color=(vmin, vmax), title='Deaths per 100k', height=650)
+    fig_map = px.choropleth(df_y, locations='Country', color='Deaths per 100k', 
+                           locationmode='country names', range_color=(vmin, vmax), 
+                           title='Deaths per 100k', height=650)
     st.plotly_chart(fig_map, use_container_width=True)
     top10 = df_y.groupby('Country')['Deaths per 100k'].sum().nlargest(10).reset_index()
     # Number ranks starting at 1
@@ -163,59 +257,15 @@ def show_predictive():
     cat = 'Low' if score < 30 else 'Moderate' if score < 60 else 'High'
     st.markdown(f'**Risk Score:** {int(score)} ({cat})')
 
-def load_data():
-    """Load CSV files with proper error handling"""
-    base_path = Path(__file__).resolve().parent
-    
-    # Load demographics CSV with fallback
-    try:
-        # Try loading from the same directory as the script
-        df_demo = pd.read_csv(base_path / 'demographics_data.csv').dropna()
-    except FileNotFoundError:
-        try:
-            # Try loading from current working directory
-            df_demo = pd.read_csv('demographics_data.csv').dropna()
-        except FileNotFoundError:
-            # Create dummy data if file doesn't exist
-            st.warning("Demographics data file not found. Using sample data.")
-            df_demo = pd.DataFrame({
-                'Country': ['USA', 'Canada', 'UK', 'Germany', 'France'],
-                'Year': [2020, 2020, 2020, 2020, 2020],
-                'Deaths per 100k': [150, 120, 130, 140, 135]
-            })
-    
-    # Rename column if it has a different name
-    long_col = [c for c in df_demo.columns if 'deaths' in c.lower()]
-    if long_col:
-        df_demo.rename(columns={long_col[0]: 'Deaths per 100k'}, inplace=True)
-    
-    # Load heart disease CSV
-    try:
-        df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()
-    except FileNotFoundError:
-        try:
-            df_hd = pd.read_csv('heart_disease_data.csv').dropna()
-        except FileNotFoundError:
-            st.error("Heart disease data file not found. Please ensure 'heart_disease_data.csv' exists in your project directory.")
-            st.stop()
-    
-    return df_demo, df_hd
+# Initialize session state
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
-# Entry point
-def main():
-    # Set page config first
-    st.set_page_config(page_title='Health Data App', layout='wide', page_icon='🫀')
-    
-    # Initialize login state
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-    
-    # Show login page if not logged in
-    if not st.session_state.logged_in:
-        show_login_page()
-        return
-    
-    # Load data
+# Main app logic
+if not st.session_state.logged_in:
+    show_login_page()
+else:
+    # Load data only after login
     df_demo, df_hd = load_data()
     
     # Navigation
@@ -230,6 +280,3 @@ def main():
         show_heatmap(df_demo)
     else:
         show_predictive()
-
-if __name__ == "__main__":
-    main()
