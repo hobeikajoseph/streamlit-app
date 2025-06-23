@@ -22,51 +22,123 @@ def calculate_risk_factor_importance(df):
     return pd.DataFrame(rf.items(), columns=['Risk Factor','Importance'])
 
 # Login Page
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import base64
+import streamlit.components.v1 as components
+from scipy.stats import chi2_contingency
+
+# (You can leave your st.set_page_config wherever you had it —
+# just make sure it’s before any other Streamlit calls.)
+
+# Calculate risk factor importance
+@st.cache_data
+def calculate_risk_factor_importance(df):
+    hd_bin = (df['Heart Disease Status'] == 'Yes').astype(int)
+    rf = {}
+    rf['Age'] = abs(df['Age'].corr(hd_bin))
+    rf['Cholesterol Level'] = chi2_contingency(
+        pd.crosstab(df['Cholesterol Level'], df['Heart Disease Status'])
+    )[0] / len(df)
+    rf['Blood Pressure'] = chi2_contingency(
+        pd.crosstab(df['Blood Pressure'], df['Heart Disease Status'])
+    )[0] / len(df)
+    rf['Smoking'] = abs((df['Smoking'] == 'Yes').astype(int).corr(hd_bin))
+    rf['Family Heart Disease'] = abs((df['Family Heart Disease'] == 'Yes').astype(int).corr(hd_bin))
+    rf['Exercise Habits'] = chi2_contingency(
+        pd.crosstab(df['Exercise Habits'], df['Heart Disease Status'])
+    )[0] / len(df)
+    rf['BMI'] = abs(df['BMI'].corr(hd_bin))
+    rf['Diabetes'] = abs((df['Diabetes'] == 'Yes').astype(int).corr(hd_bin))
+    return pd.DataFrame(rf.items(), columns=['Risk Factor','Importance'])
+
+# ─── Updated Login Page ─────────────────────────────────────────────────────────
 def show_login_page():
     st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg,#eef2f3,#8e9eab); }
-    .login-container { background:#fff; padding:1.5rem; border-radius:15px; max-width:360px; margin:1rem auto; text-align:center; box-shadow:0 15px 30px rgba(0,0,0,0.05); }
+    .login-container { background:#fff; padding:1.5rem; border-radius:15px;
+                      max-width:360px; margin:1rem auto; text-align:center;
+                      box-shadow:0 15px 30px rgba(0,0,0,0.05); }
     .medical-icon { font-size:3rem; color:#e74c3c; margin-bottom:0.75rem; }
-    .login-header { font-size:2rem; font-weight:700; background:linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0.25rem; }
+    .login-header { font-size:2rem; font-weight:700;
+                    background:linear-gradient(135deg,#667eea,#764ba2);
+                    -webkit-background-clip:text;
+                    -webkit-text-fill-color:transparent;
+                    margin-bottom:0.25rem; }
     .login-subtitle { color:#555; font-size:0.9rem; margin-bottom:1rem; }
-    .stTextInput input { border-radius:6px; border:1px solid #ccc; padding:0.5rem 0.75rem; }
-    .stButton button { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border:none; border-radius:6px; padding:0.5rem; width:100%; }
+    .stTextInput input { border-radius:6px; border:1px solid #ccc;
+                         padding:0.5rem 0.75rem; }
+    .stButton button { background:linear-gradient(135deg,#667eea,#764ba2);
+                       color:#fff; border:none; border-radius:6px;
+                       padding:0.5rem; width:100%; }
     #MainMenu, header, footer { visibility:hidden; }
     </style>
     """, unsafe_allow_html=True)
+
     st.markdown("<div class='login-container'>", unsafe_allow_html=True)
     st.markdown("""
     <div class='medical-icon'>🫀</div>
     <h1 class='login-header'>CardioInsight</h1>
     <p class='login-subtitle'>Advanced CVD Analytics Platform</p>
     """, unsafe_allow_html=True)
+
     with st.form("login_form"):
-        pw = st.text_input('🔐 Access Code', type='password', placeholder='Enter code', key='login_pw')
+        pw = st.text_input(
+            '🔐 Access Code',
+            type='password',
+            placeholder='Enter code',
+            key='login_pw'
+        )
         submitted = st.form_submit_button('🚀 Access Dashboard')
+
         if submitted:
             if pw == 'streamlit_health2025':
                 st.session_state.logged_in = True
+                # ←←← Immediately rerun on success so you don't need a second click
+                st.experimental_rerun()
             else:
                 st.error('❌ Invalid code')
+
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class='login-footer'>
         🔒 HIPAA Compliant & Secure • Unauthorized access prohibited
     </div>
     """, unsafe_allow_html=True)
-    st.stop()
-def show_home():
-    col1, col2 = st.columns([3,1])
-    with col1:
-        st.markdown('<h1 class="dashboard-title"><b>Welcome to the CVD Insights App</b></h1>', unsafe_allow_html=True)
-        st.markdown("""
-        **Global Impact:** Cardiovascular disease (CVD) claims over 17.9 million lives annually worldwide.
 
-        **Problem Statement:** Heart disease remains the leading cause of mortality, with 80% of cases preventable through lifestyle changes.
-        """, unsafe_allow_html=True)
-    with col2:
-        st.image('heart-intro-photo-1.jpg', width=150)
+    # Only stops here if not logged in
+    st.stop()
+# ────────────────────────────────────────────────────────────────────────────────
+
+def show_home():
+    # … your home page code …
+    pass
+
+def show_hd_dashboard(df_hd):
+    # … your dashboard code …
+    pass
+
+def show_heatmap(df_demo):
+    # … your heatmap code …
+    pass
+
+def show_predictive():
+    # … your predictive insights code …
+    pass
+
+# Entry point
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    show_login_page()
+else:
+    # … load your CSVs and show pages …
+    pass
+
 
 # Heart Disease Dashboard
 def show_hd_dashboard(df_hd):
