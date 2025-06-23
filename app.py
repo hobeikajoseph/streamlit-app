@@ -41,19 +41,21 @@ def show_login_page():
     <h1 class='login-header'>CardioInsight</h1>
     <p class='login-subtitle'>Advanced CVD Analytics Platform</p>
     """, unsafe_allow_html=True)
-    with st.form('login_form'):
-        pw = st.text_input('🔐 Access Code', type='password', placeholder='Enter code')
-        submitted = st.form_submit_button('Access Dashboard')
+    with st.form("login_form"):
+        pw = st.text_input('🔐 Access Code', type='password', placeholder='Enter code', key='login_pw')
+        submitted = st.form_submit_button('🚀 Access Dashboard')
         if submitted:
             if pw == 'streamlit_health2025':
                 st.session_state.logged_in = True
-                st.experimental_rerun()
             else:
                 st.error('❌ Invalid code')
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class='login-footer'>
+        🔒 HIPAA Compliant & Secure • Unauthorized access prohibited
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
-
-# Home Page
 def show_home():
     col1, col2 = st.columns([3,1])
     with col1:
@@ -64,7 +66,7 @@ def show_home():
         **Problem Statement:** Heart disease remains the leading cause of mortality, with 80% of cases preventable through lifestyle changes.
         """, unsafe_allow_html=True)
     with col2:
-        st.image('images/heart-intro-photo-1.jpg', width=150)
+        st.image('heart-intro-photo-1.jpg', width=150)
 
 # Heart Disease Dashboard
 def show_hd_dashboard(df_hd):
@@ -133,6 +135,8 @@ def show_heatmap(df_demo):
     fig_map = px.choropleth(df_y, locations='Country', color='Deaths per 100k', locationmode='country names', range_color=(vmin, vmax), title='Deaths per 100k', height=650)
     st.plotly_chart(fig_map, use_container_width=True)
     top10 = df_y.groupby('Country')['Deaths per 100k'].sum().nlargest(10).reset_index()
+    # Number ranks starting at 1
+    top10.index = range(1, len(top10) + 1)
     st.table(top10)
 
 def show_predictive():
