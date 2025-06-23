@@ -78,9 +78,11 @@ def show_hd_dashboard(df_hd):
     genders = st.sidebar.multiselect('Gender', df_hd['Gender'].unique(), df_hd['Gender'].unique(), key='g')
     smoking = st.sidebar.multiselect('Smoking', df_hd['Smoking'].unique(), df_hd['Smoking'].unique(), key='s')
     diabetes = st.sidebar.multiselect('Diabetes', df_hd['Diabetes'].unique(), df_hd['Diabetes'].unique(), key='d')
+    # Filter data
     df = df_hd[
         df_hd['Age'].between(*age_range) & df_hd['Gender'].isin(genders) & df_hd['Smoking'].isin(smoking) & df_hd['Diabetes'].isin(diabetes)
     ].copy()
+    # Key Metrics
     st.subheader('Key Metrics')
     c1, c2, c3, c4 = st.columns(4)
     c1.metric('👥 Total Patients', f"{len(df):,}")
@@ -103,6 +105,7 @@ def show_hd_dashboard(df_hd):
     fig3 = px.pie(hd_only, names='CholCat', title='Cholesterol Distribution (HD Patients)', hole=0.3)
     r1, r2 = st.columns(2)
     with r1: st.plotly_chart(fig2, use_container_width=True)
+    with r2: st.plotly_chart(fig3, use_container_width=True)(fig2, use_container_width=True)
     with r2: st.plotly_chart(fig3, use_container_width=True)
     # Secondary Insights: Smoking & BP
     smoke_df = df.groupby(['Smoking','Heart Disease Status']).size().reset_index(name='Count')
