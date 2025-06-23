@@ -165,8 +165,12 @@ if not st.session_state.logged_in:
     show_login_page()
 else:
     from pathlib import Path
-    base_path = Path(__file__).parent
-    df_demo = pd.read_csv(base_path / 'demographics_data.csv').dropna()
+    base_path = Path(__file__).resolve().parent
+    # Load demographics CSV with fallback
+    try:
+        df_demo = pd.read_csv(base_path / 'demographics_data.csv').dropna()
+    except FileNotFoundError:
+        df_demo = pd.read_csv('demographics_data.csv').dropna()(base_path / 'demographics_data.csv').dropna()
     long_col = [c for c in df_demo.columns if 'deaths' in c.lower()][0]
     df_demo.rename(columns={long_col: 'Deaths per 100k'}, inplace=True)
     df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()
