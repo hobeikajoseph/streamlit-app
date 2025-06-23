@@ -166,7 +166,7 @@ else:
     df_demo = pd.read_csv(base_path / 'demographics_data.csv').dropna()
     long_col = [c for c in df_demo.columns if 'deaths' in c.lower()][0]
     df_demo.rename(columns={long_col: 'Deaths per 100k'}, inplace=True)
-    df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()(base_path / 'heart_disease_data.csv').dropna()
+    df_hd = pd.read_csv(base_path / 'heart_disease_data.csv').dropna()
     st.set_page_config(page_title='Health Data App', layout='wide')
     page = st.sidebar.selectbox('Navigation', ['Home', 'Heart Disease Dashboard', 'Demographics Heatmap', 'Predictive Insights'], key='nav')
     if page == 'Home':
